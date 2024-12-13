@@ -22,7 +22,12 @@ type CalendarService struct {
 func NewCalendarService() (*CalendarService, error) {
 	credentials := os.Getenv("GOOGLE_CREDENTIALS_JSON")
 	if credentials == "" {
-		return nil, fmt.Errorf("GOOGLE_CREDENTIALS_JSON environment variable is not set")
+		// FIXME: Try to load from local file in development environment
+		credBytes, err := os.ReadFile("./config/credentials.json")
+		if err != nil {
+			return nil, fmt.Errorf("GOOGLE_CREDENTIALS_JSON not set and couldn't read credentials.json: %v", err)
+		}
+		credentials = string(credBytes)
 	}
 
 	config, err := google.ConfigFromJSON([]byte(credentials), calendar.CalendarReadonlyScope)
