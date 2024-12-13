@@ -20,14 +20,14 @@ type CalendarService struct {
 }
 
 func NewCalendarService() (*CalendarService, error) {
-	b, err := os.ReadFile("./config/credentials.json")
-	if err != nil {
-		return nil, fmt.Errorf("unable to read client secret file: %v", err)
+	credentials := os.Getenv("GOOGLE_CREDENTIALS_JSON")
+	if credentials == "" {
+		return nil, fmt.Errorf("GOOGLE_CREDENTIALS_JSON environment variable is not set")
 	}
 
-	config, err := google.ConfigFromJSON(b, calendar.CalendarReadonlyScope)
+	config, err := google.ConfigFromJSON([]byte(credentials), calendar.CalendarReadonlyScope)
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse client secret file: %v", err)
+		return nil, fmt.Errorf("unable to parse client secret: %v", err)
 	}
 
 	redirectURI := os.Getenv("GOOGLE_OAUTH_REDIRECT_URI")
