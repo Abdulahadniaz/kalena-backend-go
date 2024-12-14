@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -19,8 +20,11 @@ type CalendarService struct {
 	ctx         context.Context
 }
 
-func (s *CalendarService) SaveState(param any, state string) {
-	panic("unimplemented")
+type UserSession struct {
+	UserID       string    `json:"user_id"`
+	AccessToken  string    `json:"access_token"`
+	RefreshToken string    `json:"refresh_token"`
+	Expiry       time.Time `json:"expiry"`
 }
 
 func NewCalendarService() (*CalendarService, error) {
@@ -83,19 +87,36 @@ func (s *CalendarService) GetAuthURL(state string) string {
 	return s.config.AuthCodeURL(state, oauth2.AccessTypeOffline)
 }
 
-func (s *CalendarService) HandleCallback(code string, userID string) error {
+func (s *CalendarService) HandleCallback(code string) (string, error) {
+	fmt.Println("Handling callback")
 	token, err := s.config.Exchange(s.ctx, code)
 	if err != nil {
-		return fmt.Errorf("failed to exchange token: %v", err)
+		return "", fmt.Errorf("failed to exchange token: %v", err)
 	}
 
-	return s.saveToken(userID, token)
+	userID := s.GenerateRandomUserID()
+
+	userSession := UserSession{
+		UserID:       userID,
+		AccessToken:  token.AccessToken,
+		RefreshToken: token.RefreshToken,
+		Expiry:       token.Expiry,
+	}
+
+	sessionKey := "user_session:" + userID
+	sessionJSON, _ := json.Marshal(userSession)
+	err = s.redisClient.Set(context.Background(), sessionKey, sessionJSON, 24*time.Hour).Err()
+	if err != nil {
+		return "", fmt.Errorf("failed to save session to Redis: %v", err)
+	}
+
+	return s.saveToken(token, userID)
 }
 
-func (s *CalendarService) saveToken(userID string, token *oauth2.Token) error {
+func (s *CalendarService) saveToken(token *oauth2.Token, userID string) (string, error) {
 	tokenJSON, err := json.Marshal(token)
 	if err != nil {
-		return fmt.Errorf("failed to marshal token: %v", err)
+		return "", fmt.Errorf("failed to marshal token: %v", err)
 	}
 
 	key := fmt.Sprintf("oauth:token:%s", userID)
@@ -103,10 +124,10 @@ func (s *CalendarService) saveToken(userID string, token *oauth2.Token) error {
 	if err != nil {
 		// Log the error details
 		fmt.Printf("Redis save error: %v\n", err)
-		return fmt.Errorf("failed to save token to Redis: %v", err)
+		return "", fmt.Errorf("failed to save token to Redis: %v", err)
 	}
 
-	return nil
+	return userID, nil
 }
 
 // GetCalendarService creates a Calendar service for a specific user
@@ -152,7 +173,7 @@ func (s *CalendarService) loadToken(userID string) (*oauth2.Token, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to refresh token: %v", err)
 		}
-		if err := s.saveToken(userID, newToken); err != nil {
+		if _, err := s.saveToken(newToken, userID); err != nil {
 			return nil, fmt.Errorf("failed to save refreshed token: %v", err)
 		}
 		return newToken, nil
@@ -187,11 +208,24 @@ func (s *CalendarService) Close() error {
 	return s.redisClient.Close()
 }
 
-func (s *CalendarService) CreateUserID(state string) string {
-	s.redisClient.Set(s.ctx, "userID", state, 0)
-	return state
+func (s *CalendarService) GenerateRandomUserID() string {
+	return uuid.New().String()
 }
 
-func (s *CalendarService) GetUserID(state string) (string, error) {
-	return s.redisClient.Get(s.ctx, "userID").Result()
+func (s *CalendarService) SaveStateToRedis(state string) {
+	s.redisClient.Set(s.ctx, "oauth_state:"+state, "pending", 10*time.Minute)
+}
+
+func (s *CalendarService) GetStateFromRedis(state string) (string, error) {
+	return s.redisClient.Get(s.ctx, "oauth_state:"+state).Result()
+}
+
+// ValidateToken checks if the token exists in Redis and returns the associated userID
+func (cs *CalendarService) ValidateToken(token string) (string, error) {
+	// Get userID from Redis using the token as key
+	userID, err := cs.redisClient.Get(context.Background(), "token:"+token).Result()
+	if err != nil {
+		return "", err
+	}
+	return userID, nil
 }
