@@ -3,8 +3,10 @@ package controllers
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 	"gin-server/services"
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
 )
@@ -34,13 +36,10 @@ func (cc *CalendarController) InitiateGoogleAuth(c *gin.Context) {
 		return
 	}
 
-	// In production, store state in session/redis with expiry
-	// For now, we'll use a cookie
-	c.SetCookie("oauth_state", state, 3600, "/", "", false, true)
+	c.SetCookie("oauth_state", state, 3600, "/", "localhost", false, true)
+	fmt.Printf("Setting new state: %s\n", state)
 
-	// Get the authorization URL
 	authURL := cc.calendarService.GetAuthURL(state)
-
 	c.JSON(http.StatusOK, gin.H{
 		"auth_url": authURL,
 	})
@@ -48,33 +47,31 @@ func (cc *CalendarController) InitiateGoogleAuth(c *gin.Context) {
 
 // HandleGoogleCallback processes the OAuth callback
 func (cc *CalendarController) HandleGoogleCallback(c *gin.Context) {
-	// Get state and code from query params
-	state := c.Query("state")
 	code := c.Query("code")
 
-	// Get stored state from cookie
-	storedState, err := c.Cookie("oauth_state")
-	if err != nil || state != storedState {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid state parameter"})
+	// Get user ID from session/token
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
 
-	// Clear the state cookie
-	c.SetCookie("oauth_state", "", -1, "/", "", false, true)
-
-	// Get user ID from session/token
-	// For now, using a placeholder. In production, get this from your auth system
-	userID := "test_user"
+	// Convert interface{} to string
+	userIDStr, ok := userID.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID format"})
+		return
+	}
 
 	// Exchange code for token and store it
-	err = cc.calendarService.HandleCallback(code, userID)
+	err := cc.calendarService.HandleCallback(code, userIDStr)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to handle callback"})
 		return
 	}
 
-	// Redirect to frontend or return success
-	// For now, returning success message
+	// Redirect to frontend
+	c.Redirect(http.StatusFound, os.Getenv("FRONTEND_URL"))
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Calendar successfully connected",
 	})
@@ -82,10 +79,21 @@ func (cc *CalendarController) HandleGoogleCallback(c *gin.Context) {
 
 // GetUpcomingEvents handles the request for upcoming calendar events
 func (cc *CalendarController) GetUpcomingEvents(c *gin.Context) {
-	// In production, get userID from authenticated session
-	userID := "test_user"
+	// Get userID from the session
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
 
-	events, err := cc.calendarService.GetUpcomingEvents(userID)
+	// Convert interface{} to string
+	userIDStr, ok := userID.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID format"})
+		return
+	}
+
+	events, err := cc.calendarService.GetUpcomingEvents(userIDStr)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
