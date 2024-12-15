@@ -41,11 +41,7 @@ func (r *Router) SetupRoutes(router *gin.Engine) {
 // Home is the entry point route
 func (r *Router) Home(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{
-		"message": "Welcome to Google Calendar API Service",
-		"routes": gin.H{
-			"auth":            "/auth/google",
-			"calendar_events": "/calendar/events",
-		},
+		"message":       "Welcome to Google Calendar API Service",
 		"documentation": "Contact admin for API documentation",
 	})
 }
