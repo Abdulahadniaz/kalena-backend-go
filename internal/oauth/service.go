@@ -19,19 +19,24 @@ type Service struct {
 func NewOAuthService(credentialsPath string) (*Service, error) {
 	googleCreds := os.Getenv("GOOGLE_CREDENTIALS_JSON")
 	if googleCreds == "" {
-		b, err := os.ReadFile(googleCreds)
+		b, err := os.ReadFile(credentialsPath)
 		if err != nil {
 			return nil, fmt.Errorf("unable to read client secret file: %v", err)
 		}
-
 		googleCreds = string(b)
-
 	}
 
 	config, err := google.ConfigFromJSON([]byte(googleCreds), calendar.CalendarReadonlyScope)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse client secret file to config: %v", err)
 	}
+
+	redirectURI := os.Getenv("GOOGLE_OAUTH_REDIRECT_URI")
+	if redirectURI == "" {
+		redirectURI = "http://localhost:8080/calendar/auth/callback"
+	}
+
+	config.RedirectURL = redirectURI
 
 	return &Service{config: config}, nil
 }

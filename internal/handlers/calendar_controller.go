@@ -53,8 +53,7 @@ func (c *CalendarController) HandleGoogleCallback(ctx *gin.Context) {
 		return
 	}
 
-	// Redirect to a success page or dashboard
-	ctx.Redirect(http.StatusTemporaryRedirect, "/calendar/events")
+	ctx.JSON(http.StatusOK, gin.H{"message": "Authorization successful"})
 }
 
 func (c *CalendarController) AuthMiddleware() gin.HandlerFunc {
