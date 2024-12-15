@@ -16,7 +16,6 @@ type CalendarController struct {
 }
 
 func NewCalendarController(credentialsPath string) (*CalendarController, error) {
-	// Initialize OAuth Service
 	oauthService, err := oauth.NewOAuthService(credentialsPath)
 	if err != nil {
 		return nil, err
@@ -33,21 +32,18 @@ func (c *CalendarController) HandleGoogleAuth(ctx *gin.Context) {
 }
 
 func (c *CalendarController) HandleGoogleCallback(ctx *gin.Context) {
-	// Get authorization code from query parameters
 	authCode := ctx.Query("code")
 	if authCode == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Authorization code is missing"})
 		return
 	}
 
-	// Exchange authorization code for token
 	tok, err := c.oauthService.ExchangeToken(authCode)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Save token (you might want to save this in a database in a real-world scenario)
 	err = c.oauthService.SaveToken("token.json", tok)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -59,7 +55,7 @@ func (c *CalendarController) HandleGoogleCallback(ctx *gin.Context) {
 
 func (c *CalendarController) AuthMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		// Load token
+
 		tok, err := c.oauthService.LoadToken("token.json")
 		if err != nil {
 			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
@@ -67,10 +63,8 @@ func (c *CalendarController) AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// Create HTTP client with the token
 		client := c.oauthService.GetClient(tok)
 
-		// Initialize calendar service
 		calendarService, err := calendar.NewCalendarService(client)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create calendar service"})
@@ -84,7 +78,6 @@ func (c *CalendarController) AuthMiddleware() gin.HandlerFunc {
 }
 
 func (c *CalendarController) GetUpcomingEvents(ctx *gin.Context) {
-	// Get max results from query parameter, default to 10
 	maxResults := 10
 	if max, exists := ctx.GetQuery("max"); exists {
 		if parsedMax, err := strconv.Atoi(max); err == nil {

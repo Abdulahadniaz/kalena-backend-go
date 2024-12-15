@@ -13,36 +13,27 @@ import (
 )
 
 func main() {
-	// Load environment (you might want to use a package like godotenv in a real app)
 	gin.SetMode(getGinMode())
 
-	// Create a new Gin engine
 	r := gin.Default()
 
-	// Apply CORS middleware
 	r.Use(middleware.CORSConfig())
 
-	// Initialize Calendar Controller
 	calendarController, err := handlers.NewCalendarController(config.LoadConfig().OAuthCredentialsPath)
 	if err != nil {
 		log.Fatalf("Failed to create calendar controller: %v", err)
 	}
 
-	// Create router with routes
 	router := routes.NewRouter(calendarController)
 
-	// Setup routes
 	router.SetupRoutes(r)
 
-	// Start server
 	port := getServerPort()
 	log.Printf("Server starting on %s", port)
 	if err := r.Run(port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }
-
-// Helper function to get Gin mode from environment
 func getGinMode() string {
 	mode := os.Getenv("GIN_MODE")
 	switch mode {
@@ -54,8 +45,6 @@ func getGinMode() string {
 		return gin.DebugMode
 	}
 }
-
-// Helper function to get server port from environment
 func getServerPort() string {
 	port := os.Getenv("PORT")
 	if port == "" {

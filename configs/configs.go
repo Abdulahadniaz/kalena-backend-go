@@ -10,7 +10,6 @@ type Config struct {
 }
 
 func LoadConfig() *Config {
-	// Check for environment variable, fallback to default if not set
 	oauthCredPath := os.Getenv("GOOGLE_CREDENTIALS_JSON")
 	if oauthCredPath == "" {
 		oauthCredPath = "configs/credentials.json"
