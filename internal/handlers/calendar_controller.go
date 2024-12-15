@@ -4,6 +4,7 @@ import (
 	"gin-server/internal/calendar"
 	"gin-server/internal/oauth"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -53,7 +54,7 @@ func (c *CalendarController) HandleGoogleCallback(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"message": "Authorization successful"})
+	ctx.Redirect(http.StatusFound, os.Getenv("FRONTEND_URL"))
 }
 
 func (c *CalendarController) AuthMiddleware() gin.HandlerFunc {
