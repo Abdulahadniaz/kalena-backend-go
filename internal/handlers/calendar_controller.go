@@ -56,7 +56,7 @@ func (c *CalendarController) HandleGoogleCallback(ctx *gin.Context) {
 func (c *CalendarController) AuthMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 
-		tok, err := c.oauthService.LoadToken("token.json")
+		tok, err := c.oauthService.LoadToken("")
 		if err != nil {
 			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 			ctx.Abort()
