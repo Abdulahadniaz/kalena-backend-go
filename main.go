@@ -1,54 +1,44 @@
 package main
 
 import (
-	"log"
-	"os"
-
-	config "gin-server/configs"
+	config "gin-server/internal/db"
 	"gin-server/internal/handlers"
 	"gin-server/internal/middleware"
-	"gin-server/internal/routes"
+	"os"
 
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
-	gin.SetMode(getGinMode())
+	config.ConnectDatabase()
 
 	r := gin.Default()
+	// use cors middleware defined in middleware/cors.go
+	r.Use(middleware.CorsMiddleware())
 
-	r.Use(middleware.CORSConfig())
-
-	calendarController, err := handlers.NewCalendarController(config.LoadConfig().OAuthCredentialsPath)
-	if err != nil {
-		log.Fatalf("Failed to create calendar controller: %v", err)
+	auth := r.Group("/auth")
+	{
+		authHandler := handlers.NewAuthHandler(config.DB)
+		auth.POST("/signup", authHandler.Signup)
+		auth.POST("/login", authHandler.Login)
 	}
 
-	router := routes.NewRouter(calendarController)
+	// protected := r.Group("/api")
+	// protected.Use(middleware.AuthMiddleware())
+	// {
+	// 	protected.GET("/profile", func(c *gin.Context) {
+	// 		userID, _ := c.Get("user_id")
+	// 		email, _ := c.Get("email")
+	// 		c.JSON(200, gin.H{
+	// 			"user_id": userID,
+	// 			"email":   email,
+	// 		})
+	// 	})
+	// }
 
-	router.SetupRoutes(r)
-
-	port := getServerPort()
-	log.Printf("Server starting on %s", port)
-	if err := r.Run(port); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
-	}
-}
-func getGinMode() string {
-	mode := os.Getenv("GIN_MODE")
-	switch mode {
-	case "release":
-		return gin.ReleaseMode
-	case "test":
-		return gin.TestMode
-	default:
-		return gin.DebugMode
-	}
-}
-func getServerPort() string {
 	port := os.Getenv("PORT")
 	if port == "" {
-		return ":8080"
+		port = "8080"
 	}
-	return ":" + port
+	r.Run(":" + port)
 }
