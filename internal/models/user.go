@@ -2,10 +2,12 @@ package models
 
 import (
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type User struct {
-	ID        uint      `gorm:"primarykey" json:"id"`
+	ID        uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
 	Email     string    `gorm:"unique;not null" json:"email"`
 	Password  string    `gorm:"not null" json:"-"`
 	Name      string    `json:"name"`
